@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useChatMessages } from "./useChatMessages";
 import { useSendMessage } from "./useSendMessage";
 import { useMediaUpload } from "./useMediaUpload";
@@ -8,18 +8,37 @@ interface User {
   id: string;
 }
 
-export const useChat = (groupId: string | undefined, user: User | null) => {
+/**
+ * Custom hook to manage chat state with optimistic message sending.
+ */
+export const useChat = (
+  groupId: string | undefined,
+  user: User | null
+) => {
+  // 1️⃣ Fetch server messages and group metadata
+  const {
+    messages: fetchedMessages,
+    currentGroup,
+    loading,
+  } = useChatMessages(groupId, user);
+
+  // 2️⃣ Local copy of messages to support optimistic UI updates
   const [messages, setMessages] = useState<Message[]>([]);
-  
-  // Use our new hooks to handle different responsibilities
-  const { messages: fetchedMessages, currentGroup, loading } = useChatMessages(groupId, user);
-  const { sendMessage } = useSendMessage(groupId, user, setMessages);
-  const { uploadingMedia, handleFileUpload } = useMediaUpload(groupId, user, setMessages);
-  
-  // Keep our messages state in sync with the fetched messages
-  if (JSON.stringify(messages) !== JSON.stringify(fetchedMessages) && fetchedMessages.length > 0) {
+
+  // 3️⃣ Sync local messages when the group or fetchedMessages changes
+  useEffect(() => {
     setMessages(fetchedMessages);
-  }
+  }, [fetchedMessages, groupId]);
+
+  // 4️⃣ Hook to send a message: performs optimistic append and reconciliation
+  const { sendMessage } = useSendMessage(groupId, user, setMessages);
+
+  // 5️⃣ Hook to upload media: can also append optimistic media messages
+  const { uploadingMedia, handleFileUpload } = useMediaUpload(
+    groupId,
+    user,
+    setMessages
+  );
 
   return {
     messages,
@@ -27,6 +46,6 @@ export const useChat = (groupId: string | undefined, user: User | null) => {
     loading,
     uploadingMedia,
     sendMessage,
-    handleFileUpload
+    handleFileUpload,
   };
 };

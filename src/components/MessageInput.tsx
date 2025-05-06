@@ -1,8 +1,6 @@
-
 import React, { useState } from "react";
 import { Send, Image, Gift, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 interface MessageInputProps {
   currentGroup: { id: string; name: string; description?: string } | null;
@@ -11,79 +9,87 @@ interface MessageInputProps {
   uploadingMedia: boolean;
 }
 
-const MessageInput = ({ 
-  currentGroup, 
-  onSendMessage, 
+const MessageInput = ({
+  currentGroup,
+  onSendMessage,
   onFileUpload,
-  uploadingMedia 
+  uploadingMedia,
 }: MessageInputProps) => {
-  const [newMessage, setNewMessage] = useState("");
+  const [text, setText] = useState("");
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() && !uploadingMedia) return;
-    
-    onSendMessage(newMessage);
-    setNewMessage("");
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSendMessage();
-    }
+  const handleSend = () => {
+    if (!text.trim() && !uploadingMedia) return;
+    onSendMessage(text.trim());
+    setText("");
   };
 
   if (!currentGroup) return null;
 
   return (
-    <div className="p-4 border-t border-terminal-border sticky bottom-0 bg-terminal z-50">
-      <Textarea
-        value={newMessage}
-        onChange={(e) => setNewMessage(e.target.value)}
-        placeholder="Type a message..."
-        className="w-full resize-none bg-terminal-muted text-terminal-foreground"
-        rows={2}
-        onKeyDown={handleKeyDown}
-      />
-      <div className="flex justify-between mt-2">
-        <div className="flex space-x-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-terminal-foreground/70 hover:text-terminal-foreground hover:bg-terminal-muted"
-            onClick={() => document.getElementById('image-upload')?.click()}
+    <div className="flex items-center p-2 border-t border-terminal-border bg-terminal z-50">
+      {/* Attach icons + emoji placeholder */}
+      <div className="flex space-x-2 px-2">
+        <button
+          onClick={() => document.getElementById('image-upload')?.click()}
+          className="text-terminal-foreground/70 hover:text-terminal-foreground"
+        >
+          <Image size={24} />
+          <input
+            id="image-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onFileUpload}
+          />
+        </button>
+        <button
+          onClick={() => document.getElementById('gif-upload')?.click()}
+          className="text-terminal-foreground/70 hover:text-terminal-foreground"
+        >
+          <Gift size={24} />
+          <input
+            id="gif-upload"
+            type="file"
+            accept="image/gif"
+            className="hidden"
+            onChange={onFileUpload}
+          />
+        </button>
+      </div>
+
+      {/* Input box */}
+      <div className="flex items-center flex-1 bg-terminal-muted rounded-full px-4 py-2 mx-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type a message"
+          className="flex-1 resize-none bg-transparent outline-none text-sm text-terminal-foreground placeholder-terminal-foreground/50 h-6 max-h-20"
+          rows={1}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+        />
+        {/* Emoji icon could go here */}
+      </div>
+
+      {/* Send / mic button */}
+      <div className="px-2">
+        {text.trim() || uploadingMedia ? (
+          <button
+            onClick={handleSend}
+            className="bg-green-500 hover:bg-green-600 p-3 rounded-full shadow-md"
           >
-            <Image size={18} />
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onFileUpload}
-            />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-terminal-foreground/70 hover:text-terminal-foreground hover:bg-terminal-muted"
-            onClick={() => document.getElementById('gif-upload')?.click()}
-          >
-            <Gift size={18} />
-            <input
-              id="gif-upload"
-              type="file"
-              accept="image/gif"
-              className="hidden"
-              onChange={onFileUpload}
-            />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-terminal-foreground/70 hover:text-terminal-foreground hover:bg-terminal-muted"
+            <Send size={20} className="text-white" />
+          </button>
+        ) : (
+          <button
             onClick={() => document.getElementById('audio-upload')?.click()}
+            className="text-terminal-foreground/70 hover:text-terminal-foreground p-3"
           >
-            <Mic size={18} />
+            <Mic size={20} />
             <input
               id="audio-upload"
               type="file"
@@ -91,17 +97,8 @@ const MessageInput = ({
               className="hidden"
               onChange={onFileUpload}
             />
-          </Button>
-        </div>
-        <Button 
-          variant="default" 
-          className="bg-terminal-foreground text-terminal hover:bg-terminal-foreground/90" 
-          onClick={handleSendMessage}
-          disabled={!newMessage.trim() && !uploadingMedia}
-        >
-          {uploadingMedia ? "Uploading..." : "Send"}
-          <Send size={16} className="ml-2" />
-        </Button>
+          </button>
+        )}
       </div>
     </div>
   );

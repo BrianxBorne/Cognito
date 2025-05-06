@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useChat } from "@/hooks/useChat";
@@ -9,7 +8,7 @@ import MessageInput from "@/components/MessageInput";
 const ChatPage = () => {
   const { groupId } = useParams<{ groupId?: string }>();
   const { user } = useAuth();
-  
+
   const {
     messages,
     currentGroup,
@@ -20,12 +19,12 @@ const ChatPage = () => {
   } = useChat(groupId, user);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Fixed header with SidebarTrigger */}
+    <div className="flex flex-col h-screen">
+      {/* Sticky header */}
       <ChatHeader currentGroup={currentGroup} />
-      
-      {/* Scrollable message area */}
-      <div className="flex-1 overflow-y-auto flex flex-col">
+
+      {/* Scrollable messages area */}
+      <div className="flex-1 overflow-y-auto px-4 py-2">
         <MessageList 
           messages={messages} 
           currentGroup={currentGroup} 
@@ -33,8 +32,8 @@ const ChatPage = () => {
           userId={user?.id} 
         />
       </div>
-      
-      {/* Fixed input area */}
+
+      {/* Sticky input area */}
       <div className="sticky bottom-0 bg-terminal border-t border-terminal-border z-10">
         <MessageInput 
           currentGroup={currentGroup} 

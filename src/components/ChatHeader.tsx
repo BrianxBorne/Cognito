@@ -1,4 +1,3 @@
-
 import React from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -22,18 +21,20 @@ const ChatHeader = ({ currentGroup }: ChatHeaderProps) => {
     : "No description";
   
   return (
-    <div className="p-4 border-b border-terminal-border flex justify-between items-center sticky top-0 bg-terminal z-50 shadow-sm">
+    <div className="py-2 px-3 border-b border-terminal-border sticky top-0 bg-terminal z-50 shadow-sm">
       <div className="flex items-center">
         <SidebarTrigger />
-        <div className="ml-4 text-sm text-terminal-foreground">
+        <div className="ml-3 text-xs text-terminal-foreground">
           <span>{terminalDisplay}</span>
         </div>
       </div>
-      
+
       {currentGroup && (
-        <p className="text-sm text-terminal-foreground/50 truncate max-w-[50%]">
-          {truncatedDescription}
-        </p>
+        <div className="mt-1 ml-8">
+          <p className="text-xs text-terminal-foreground/50 truncate max-w-[80%]">
+            {truncatedDescription}
+          </p>
+        </div>
       )}
     </div>
   );
