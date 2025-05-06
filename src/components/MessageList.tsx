@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from "react";
 import { toast } from "sonner";
 import MessageItem from "@/components/MessageItem";
@@ -21,6 +20,26 @@ const MessageList = ({ messages, currentGroup, loading, userId }: MessageListPro
   const [leaveGroupLoading, setLeaveGroupLoading] = useState<Record<string, boolean>>({});
   const { user } = useAuth();
 
+  // Local display state to prevent "leaked" messages when switching groups
+  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
+
+  // Clear displayMessages immediately when group changes
+  useEffect(() => {
+    setDisplayMessages([]);
+  }, [currentGroup?.id]);
+
+  // Update displayMessages when new messages arrive
+  useEffect(() => {
+    setDisplayMessages(messages);
+  }, [messages]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [displayMessages]);
+
   // Fetch all available groups when no group is selected
   useEffect(() => {
     if (!currentGroup && user) {
@@ -36,23 +55,12 @@ const MessageList = ({ messages, currentGroup, loading, userId }: MessageListPro
     }
   }, [currentGroup, user]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   const handleJoinRequest = async (groupId: string, groupName: string) => {
     if (!user) return;
-    
     setJoinRequestLoading(prev => ({ ...prev, [groupId]: true }));
-    
     try {
       await requestToJoinGroup(groupId, user.id);
       toast.success(`Request to join ${groupName} sent successfully`);
-      
-      // Update the local state to reflect the pending request
       setAllGroups(groups => groups.map(g => 
         g.id === groupId ? { ...g, pendingRequest: true } : g
       ));
@@ -66,14 +74,10 @@ const MessageList = ({ messages, currentGroup, loading, userId }: MessageListPro
   
   const handleLeaveGroup = async (groupId: string, groupName: string) => {
     if (!user) return;
-    
     setLeaveGroupLoading(prev => ({ ...prev, [groupId]: true }));
-    
     try {
       await leaveGroup(groupId, user.id);
       toast.success(`You have left ${groupName}`);
-      
-      // Update the local state to reflect that the user is no longer a member
       setAllGroups(groups => groups.map(g => 
         g.id === groupId ? { ...g, isMember: false } : g
       ));
@@ -103,7 +107,6 @@ const MessageList = ({ messages, currentGroup, loading, userId }: MessageListPro
                       Created by: {group.created_by_username || "Unknown"}
                     </p>
                   </div>
-                  
                   {group.isMember ? (
                     <div className="flex space-x-2 items-center">
                       <span className="text-green-500 text-sm">Joined</span>
@@ -134,26 +137,22 @@ const MessageList = ({ messages, currentGroup, loading, userId }: MessageListPro
           </div>
         </div>
       )}
-      
       {!currentGroup && allGroups.length === 0 && (
         <div className="text-center text-terminal-foreground/50 mt-10">
           <p>No groups available. Create a new group from the sidebar.</p>
         </div>
       )}
-      
-      {currentGroup && messages.length === 0 && !loading && (
+      {currentGroup && displayMessages.length === 0 && !loading && (
         <div className="text-center text-terminal-foreground/50 mt-10">
           <p>No messages yet. Start the conversation!</p>
         </div>
       )}
-      
       {loading && (
         <div className="text-center text-terminal-foreground/50 mt-10">
           <p>Loading messages...</p>
         </div>
       )}
-      
-      {currentGroup && messages.map(message => (
+      {currentGroup && displayMessages.map(message => (
         <MessageItem 
           key={message.id} 
           message={message} 
