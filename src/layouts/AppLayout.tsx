@@ -1,7 +1,6 @@
 
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 
 const AppLayout = () => {
@@ -28,16 +27,7 @@ const AppLayout = () => {
     <div className="min-h-screen flex w-full bg-terminal">
       <AppSidebar />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center p-4 border-b border-terminal-border">
-          <SidebarTrigger />
-          <div className="ml-4 text-sm text-terminal-foreground/50">
-            {/* Terminal header info */}
-            <span>cognito@terminal:~$</span>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto terminal-scrollbar">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
     </div>
   );

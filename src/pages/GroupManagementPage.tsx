@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Card,
   CardContent,
@@ -21,7 +21,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Users, Plus, UserPlus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Users, Plus, UserPlus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -30,6 +41,7 @@ interface Group {
   name: string;
   description: string;
   memberCount: number;
+  created_by: string | null; // Added to track group creator
 }
 
 interface Profile {
@@ -43,6 +55,7 @@ const GroupManagementPage = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingGroups, setLoadingGroups] = useState(true);
+  const [deletingGroup, setDeletingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState({
     name: "",
     description: "",
@@ -76,10 +89,10 @@ const GroupManagementPage = () => {
         
         const groupIds = memberData.map(item => item.group_id);
         
-        // Get the group details
+        // Get the group details - also fetch created_by to identify group creator
         const { data: groupsData, error: groupsError } = await supabase
           .from('groups')
-          .select('*')
+          .select('*, created_by')
           .in('id', groupIds);
           
         if (groupsError) throw groupsError;
@@ -264,6 +277,109 @@ const GroupManagementPage = () => {
     }
   };
 
+  // New function to delete a group
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!user) return;
+    
+    try {
+      setDeletingGroup(true);
+      
+      // Check if user is the creator of the group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('created_by')
+        .eq('id', groupId)
+        .single();
+        
+      if (groupError) throw groupError;
+      
+      // Only allow deletion if the user is the creator
+      if (groupData.created_by !== user.id) {
+        toast({
+          title: "Permission denied",
+          description: "Only the creator of the group can delete it",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Delete all associated data in the following order:
+      // 1. Delete all messages in the group including media
+      // First, get all messages with media to delete from storage
+      const { data: messagesWithMedia } = await supabase
+        .from('messages')
+        .select('media_url')
+        .eq('group_id', groupId)
+        .not('media_url', 'is', null);
+      
+      // Delete media files from storage if any
+      if (messagesWithMedia && messagesWithMedia.length > 0) {
+        const mediaUrls = messagesWithMedia
+          .map(msg => msg.media_url)
+          .filter(url => url && url.includes('media/'));
+          
+        for (const url of mediaUrls) {
+          if (url) {
+            const path = url.split('/').pop();
+            if (path) {
+              await supabase.storage.from('media').remove([path]);
+            }
+          }
+        }
+      }
+      
+      // 2. Delete all messages
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('group_id', groupId);
+        
+      if (messagesError) throw messagesError;
+      
+      // 3. Delete all invitations
+      const { error: invitesError } = await supabase
+        .from('invites')
+        .delete()
+        .eq('group_id', groupId);
+        
+      if (invitesError) throw invitesError;
+      
+      // 4. Delete all group members
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId);
+        
+      if (membersError) throw membersError;
+      
+      // 5. Finally delete the group itself
+      const { error: deleteError } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', groupId);
+        
+      if (deleteError) throw deleteError;
+      
+      toast({
+        title: "Group deleted",
+        description: "The group and all associated data has been removed",
+      });
+      
+      // Update local groups state
+      setGroups(groups.filter(group => group.id !== groupId));
+      
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete group",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
@@ -288,7 +404,10 @@ const GroupManagementPage = () => {
     <div className="max-w-4xl mx-auto p-6">
       {/* Rearranged header section - vertical layout */}
       <div className="flex flex-col mb-8">
-        <h1 className="text-2xl font-bold text-terminal-foreground mb-4">Group Management</h1>
+        <div className="flex items-center mb-4">
+          <SidebarTrigger />
+          <h1 className="text-2xl font-bold text-terminal-foreground ml-4">Group Management</h1>
+        </div>
         
         <div className="flex flex-col sm:flex-row gap-2">
           <Dialog>
@@ -461,48 +580,88 @@ const GroupManagementPage = () => {
                   Open Terminal
                 </Button>
                 
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      className="border-terminal-border text-terminal-foreground hover:bg-terminal"
-                    >
-                      <UserPlus size={16} className="mr-1" />
-                      Invite
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-terminal-muted border-terminal-border text-terminal-foreground">
-                    <DialogHeader>
-                      <DialogTitle className="text-terminal-foreground">Invite to #{group.name}</DialogTitle>
-                      <DialogDescription className="text-terminal-foreground/70">
-                        Send an invitation to join this secure channel
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="py-4">
-                      <label htmlFor={`userInvite-${group.id}`} className="block text-sm text-terminal-foreground/80 mb-1">
-                        Username or Email
-                      </label>
-                      <Input
-                        id={`userInvite-${group.id}`}
-                        value={inviteData.usernameOrEmail}
-                        onChange={(e) => setInviteData({ ...inviteData, usernameOrEmail: e.target.value, groupId: group.id })}
-                        className="bg-terminal border-terminal-border text-terminal-foreground"
-                        placeholder="e.g., hackerman or user@example.com"
-                      />
-                    </div>
-                    
-                    <DialogFooter>
+                <div className="flex space-x-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
                       <Button 
-                        onClick={() => handleInviteUser(group.id, inviteData.usernameOrEmail)}
-                        disabled={loading}
-                        className="bg-terminal-foreground text-terminal hover:bg-terminal-foreground/80"
+                        variant="outline" 
+                        className="border-terminal-border text-terminal-foreground hover:bg-terminal"
                       >
-                        {loading ? "Sending..." : "Send Invite"}
+                        <UserPlus size={16} className="mr-1" />
+                        Invite
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="bg-terminal-muted border-terminal-border text-terminal-foreground">
+                      <DialogHeader>
+                        <DialogTitle className="text-terminal-foreground">Invite to #{group.name}</DialogTitle>
+                        <DialogDescription className="text-terminal-foreground/70">
+                          Send an invitation to join this secure channel
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="py-4">
+                        <label htmlFor={`userInvite-${group.id}`} className="block text-sm text-terminal-foreground/80 mb-1">
+                          Username or Email
+                        </label>
+                        <Input
+                          id={`userInvite-${group.id}`}
+                          value={inviteData.usernameOrEmail}
+                          onChange={(e) => setInviteData({ ...inviteData, usernameOrEmail: e.target.value, groupId: group.id })}
+                          className="bg-terminal border-terminal-border text-terminal-foreground"
+                          placeholder="e.g., hackerman or user@example.com"
+                        />
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button 
+                          onClick={() => handleInviteUser(group.id, inviteData.usernameOrEmail)}
+                          disabled={loading}
+                          className="bg-terminal-foreground text-terminal hover:bg-terminal-foreground/80"
+                        >
+                          {loading ? "Sending..." : "Send Invite"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  {/* Only show delete button if user is the creator */}
+                  {user.id === group.created_by && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="border-terminal-border text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-terminal-muted border-terminal-border text-terminal-foreground">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-terminal-foreground">Delete Group</AlertDialogTitle>
+                          <AlertDialogDescription className="text-terminal-foreground/70">
+                            Are you sure you want to delete <span className="font-bold">#{group.name}</span>? 
+                            This will permanently remove all messages and files from this group. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-terminal text-terminal-foreground border-terminal-border">
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            disabled={deletingGroup}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleDeleteGroup(group.id);
+                            }}
+                            className="bg-red-500 text-white hover:bg-red-600"
+                          >
+                            {deletingGroup ? "Deleting..." : "Delete"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               </CardFooter>
             </Card>
           ))

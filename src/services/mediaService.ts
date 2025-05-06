@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,7 +26,7 @@ export const uploadMedia = async (
       .from('media')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       });
     
     if (error) {

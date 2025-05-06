@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,8 @@ import { Bell, User, Settings, Check, X, Upload } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { uploadMedia } from "@/services/mediaService";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface Invite {
   id: string;
@@ -81,7 +82,7 @@ const ProfilePage = () => {
     fetchProfile();
   }, [user]);
 
-  // Fetch invites
+  // Fetch invites - modified to fix the relationship issue
   useEffect(() => {
     if (!user) return;
     
@@ -95,13 +96,27 @@ const ProfilePage = () => {
             group_id,
             invited_by,
             sent_at,
-            groups:group_id (name),
-            invited_by_profile:invited_by (username)
+            groups:group_id (name)
           `)
           .or(`invited_user_id.eq.${user.id},invited_user_email.eq.${user.email}`)
           .eq('status', 'pending');
           
         if (invitesError) throw invitesError;
+        
+        // Fetch usernames separately 
+        const inviterIds = invitesData.map(invite => invite.invited_by).filter(Boolean);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', inviterIds);
+          
+        if (profilesError) throw profilesError;
+        
+        // Map of user_id to username
+        const usernameMap = profilesData.reduce((acc, profile) => {
+          acc[profile.id] = profile.username;
+          return acc;
+        }, {} as Record<string, string>);
         
         // Format invites for display
         const formattedInvites: Invite[] = (invitesData || []).map(invite => ({
@@ -109,7 +124,7 @@ const ProfilePage = () => {
           groupId: invite.group_id,
           groupName: invite.groups?.name || 'Unknown Group',
           fromUserId: invite.invited_by,
-          fromUsername: invite.invited_by_profile?.username || 'Unknown User',
+          fromUsername: usernameMap[invite.invited_by] || 'Unknown User',
           timestamp: invite.sent_at,
         }));
         
@@ -258,26 +273,15 @@ const ProfilePage = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
-    
     setUploadingAvatar(true);
     
     try {
-      // Upload the file
-      const { error: uploadError } = await supabase
-        .storage
-        .from('media')
-        .upload(filePath, file, { upsert: true });
-        
-      if (uploadError) throw uploadError;
+      // Upload the file using our mediaService
+      const publicUrl = await uploadMedia(file, 'image', user.id);
       
-      // Get the public URL
-      const { data: { publicUrl } } = supabase
-        .storage
-        .from('media')
-        .getPublicUrl(filePath);
+      if (!publicUrl) {
+        throw new Error('Failed to upload avatar');
+      }
       
       // Update the profile with the new avatar URL
       const { error: updateError } = await supabase
@@ -342,7 +346,10 @@ const ProfilePage = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold text-terminal-foreground mb-6">Terminal Profile</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <SidebarTrigger />
+        <h1 className="text-2xl font-bold text-terminal-foreground">Terminal Profile</h1>
+      </div>
       
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid grid-cols-3 mb-6 bg-terminal-muted">
