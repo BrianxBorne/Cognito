@@ -111,14 +111,14 @@ const MessageItem = ({
   return (
     <div
       className={cn(
-        "flex gap-3 p-3 relative",
+        "flex gap-2 p-2 relative",
         isCurrentUser ? "justify-end" : "justify-start",
         isSending && "opacity-70"
       )}
     >
       {!isCurrentUser && showAvatar && (
         <div className="shrink-0">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-5 w-5">
             {message.avatar_url ? (
               <AvatarImage src={message.avatar_url} alt={senderName} />
             ) : (
@@ -132,7 +132,7 @@ const MessageItem = ({
 
       <div
         className={cn(
-          "flex flex-col max-w-[75%] rounded px-3 py-2 break-words overflow-hidden",
+          "flex flex-col max-w-[85%] rounded px-1 py-2 break-words overflow-hidden",
           isCurrentUser
             ? "bg-terminal-foreground/20 text-terminal-foreground"
             : "bg-terminal-muted text-terminal-foreground"
@@ -154,21 +154,31 @@ const MessageItem = ({
         </div>
 
         {message.media_url && message.media_type === 'audio' && (
-          <div className="flex items-center space-x-2 bg-terminal-muted p-2 rounded-xl border border-terminal-border">
-            <audio ref={audioRef} src={message.media_url} preload="metadata" hidden />
+          <div className="bg-terminal-muted p-2 rounded-xl">
+          <audio ref={audioRef} src={message.media_url} preload="metadata" hidden />
+        
+          {/* Controls Row */}
+          <div className="flex items-center space-x-2">
             <button onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </button>
+        
             <input
               type="range"
               min={0}
               max={duration}
               value={progress}
               onChange={onSeek}
-              className="flex-1 h-1 rounded-lg bg-terminal-border accent-[#3bf654] focus:outline-none"
+              className="flex-1 h-3 rounded-lg bg-terminal-border accent-[#3bf654] focus:outline-none"
             />
-            <span className="text-xs">{formatTime(progress)} / {formatTime(duration)}</span>
           </div>
+        
+          {/* Time display below */}
+          <div className="text-center text-xs text-terminal-foreground/60 mt-3">
+            {formatTime(progress)} / {formatTime(duration)}
+          </div>
+        </div>
+        
         )}
 
         {message.media_url && message.media_type !== 'audio' && (
@@ -181,7 +191,7 @@ const MessageItem = ({
         )}
 
         {message.content && (
-          <div className="text-terminal-foreground/80 markdown-content break-words overflow-hidden">
+          <div className="text-sm -foreground/80 markdown-content break-words overflow-hidden">
             <ReactMarkdown
               components={{
                 code({ node, className, children, ...props }) {

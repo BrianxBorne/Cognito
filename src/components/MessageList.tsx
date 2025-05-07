@@ -74,7 +74,7 @@ const MessageList = ({
 
   return (
     <div
-      className="flex-1 overflow-y-auto terminal-scrollbar px-4 py-2 relative"
+      className="flex-1 overflow-y-auto terminal-scrollbar px-1 py-1 relative"
       ref={containerRef}
     >
       {/* Show available groups when no group is selected */}
