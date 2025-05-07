@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Users, Plus, UserPlus, Trash2 } from "lucide-react";
+import { Users, Plus, UserPlus, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -64,6 +64,7 @@ const GroupManagementPage = () => {
     groupId: "",
     usernameOrEmail: "",
   });
+  const [leaveGroupLoading, setLeaveGroupLoading] = useState<Record<string, boolean>>({});
 
   // Fetch groups
   useEffect(() => {
@@ -380,6 +381,61 @@ const GroupManagementPage = () => {
     }
   };
 
+  // Add a function to handle leaving a group
+  const handleLeaveGroup = async (groupId: string) => {
+    if (!user) return;
+    
+    try {
+      setLeaveGroupLoading((prev) => ({ ...prev, [groupId]: true }));
+      
+      // Check if user is the creator of the group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('created_by')
+        .eq('id', groupId)
+        .single();
+        
+      if (groupError) throw groupError;
+      
+      // Only allow leaving if the user is NOT the creator
+      if (groupData.created_by === user.id) {
+        toast({
+          title: "Cannot leave group",
+          description: "As the creator, you cannot leave your own group. You can delete it instead.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Remove user from the group
+      const { error: leaveError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.id);
+        
+      if (leaveError) throw leaveError;
+      
+      toast({
+        title: "Group left",
+        description: "You have successfully left the group",
+      });
+      
+      // Update local groups state to remove the left group
+      setGroups(groups.filter(group => group.id !== groupId));
+      
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      toast({
+        title: "Error",
+        description: "Failed to leave group",
+        variant: "destructive",
+      });
+    } finally {
+      setLeaveGroupLoading((prev) => ({ ...prev, [groupId]: false }));
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
@@ -581,6 +637,7 @@ const GroupManagementPage = () => {
                 </Button>
                 
                 <div className="flex space-x-2">
+                  {/* Invite button */}
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button 
@@ -625,7 +682,7 @@ const GroupManagementPage = () => {
                   </Dialog>
                   
                   {/* Only show delete button if user is the creator */}
-                  {user.id === group.created_by && (
+                  {user.id === group.created_by ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
@@ -660,6 +717,19 @@ const GroupManagementPage = () => {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="border-terminal-border text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                      disabled={leaveGroupLoading[group.id]}
+                      onClick={() => handleLeaveGroup(group.id)}
+                    >
+                      {leaveGroupLoading[group.id] ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        "Leave Group"
+                      )}
+                    </Button>
                   )}
                 </div>
               </CardFooter>

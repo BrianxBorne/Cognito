@@ -211,14 +211,15 @@ export const requestToJoinGroup = async (groupId: string, userId: string): Promi
       throw new Error("Failed to find group information");
     }
     
-    // Create a join request (using invites table but with self-initiated flag)
+    // Create a join request (using invites table)
+    // The key change here is setting invited_by to null to indicate it's a join request, not an invite
     const { error: requestError } = await supabase
       .from('invites')
       .insert({
         group_id: groupId,
         invited_user_id: userId,
-        invited_by: userId, // Self-invite
-        status: 'pending' // Use 'pending' instead of 'requested' to comply with constraint
+        invited_by: null, // This field must be null for join requests
+        status: 'pending'
       });
       
     if (requestError) {

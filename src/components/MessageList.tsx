@@ -1,15 +1,11 @@
+
 import React, { useRef, useLayoutEffect, useEffect, useState } from "react";
-import { toast } from "sonner";
 import MessageItem from "@/components/MessageItem";
-import { Button } from "@/components/ui/button";
-import {
-  fetchAllGroups,
-  requestToJoinGroup,
-  leaveGroup,
-  Group,
-} from "@/services/groupService";
+import AvailableGroups from "@/components/AvailableGroups";
+import { leaveGroup } from "@/services/groupService";
 import { useAuth } from "@/hooks/useAuth";
 import { Message } from "@/services/messageService";
+import { toast } from "sonner";
 
 interface MessageListProps {
   messages: Message[];
@@ -26,17 +22,10 @@ const MessageList = ({
 }: MessageListProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  const [allGroups, setAllGroups] = useState<Group[]>([]);
-  const [joinRequestLoading, setJoinRequestLoading] = useState<
-    Record<string, boolean>
-  >({});
-  const [leaveGroupLoading, setLeaveGroupLoading] = useState<
-    Record<string, boolean>
-  >({});
   const { user } = useAuth();
+  const [leaveGroupLoading, setLeaveGroupLoading] = useState<Record<string, boolean>>({});
 
-  // Local display state to prevent “leaked” messages on group switch
+  // Local display state to prevent "leaked" messages on group switch
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
 
   // 1️⃣ Clear when switching groups
@@ -59,50 +48,12 @@ const MessageList = ({
     }
   }, [displayMessages]);
 
-  // Fetch groups when no group selected
-  useEffect(() => {
-    if (!currentGroup && user) {
-      (async () => {
-        try {
-          const groups = await fetchAllGroups(user.id);
-          setAllGroups(groups);
-        } catch (err) {
-          console.error("Error loading groups:", err);
-        }
-      })();
-    }
-  }, [currentGroup, user]);
-
-  const handleJoinRequest = async (groupId: string, groupName: string) => {
-    if (!user) return;
-    setJoinRequestLoading((prev) => ({ ...prev, [groupId]: true }));
-    try {
-      await requestToJoinGroup(groupId, user.id);
-      toast.success(`Request to join ${groupName} sent successfully`);
-      setAllGroups((gs) =>
-        gs.map((g) =>
-          g.id === groupId ? { ...g, pendingRequest: true } : g
-        )
-      );
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to send join request");
-    } finally {
-      setJoinRequestLoading((prev) => ({ ...prev, [groupId]: false }));
-    }
-  };
-
   const handleLeaveGroup = async (groupId: string, groupName: string) => {
     if (!user) return;
     setLeaveGroupLoading((prev) => ({ ...prev, [groupId]: true }));
     try {
       await leaveGroup(groupId, user.id);
       toast.success(`You have left ${groupName}`);
-      setAllGroups((gs) =>
-        gs.map((g) =>
-          g.id === groupId ? { ...g, isMember: false } : g
-        )
-      );
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to leave group");
@@ -116,24 +67,8 @@ const MessageList = ({
       className="flex-1 overflow-y-auto terminal-scrollbar px-4 py-2 relative"
       ref={containerRef}
     >
-      {/* Show available groups */}
-      {!currentGroup && allGroups.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-mono text-terminal-foreground mb-4">
-            Available Groups
-          </h2>
-          <div className="grid gap-4">
-            {/* ... group listing ... */}
-          </div>
-        </div>
-      )}
-
-      {/* No groups */}
-      {!currentGroup && allGroups.length === 0 && (
-        <div className="text-center text-terminal-foreground/50 mt-10">
-          <p>No groups available. Create a new group from the sidebar.</p>
-        </div>
-      )}
+      {/* Show available groups when no group is selected */}
+      {!currentGroup && <AvailableGroups onJoinRequest={handleLeaveGroup} />}
 
       {/* No messages in current group */}
       {currentGroup && displayMessages.length === 0 && !loading && (

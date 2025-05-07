@@ -20,6 +20,14 @@ const SidebarNavMenu = () => {
   const { user } = useAuth();
   const [pendingRequests, setPendingRequests] = useState(0);
 
+  // Fix the highlighting logic - only highlight chat when on main chat page, not group chats
+  const isChatPageWithoutGroup = location.pathname === "/chat" || location.pathname === "/";
+  const isGroupsPage = location.pathname === "/groups";
+  const isProfilePage = location.pathname === "/profile";
+  
+  // If we're on a specific group's chat page (/chat/[groupId]), don't highlight the chat button
+  const isSpecificGroupChatPage = location.pathname.match(/^\/chat\/[0-9a-fA-F-]+$/);
+  
   // Fetch pending join requests for groups created by the current user
   useEffect(() => {
     if (!user) return;
@@ -85,7 +93,7 @@ const SidebarNavMenu = () => {
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={() => navigate("/chat")}
-              className={location.pathname.includes("/chat") ? "bg-terminal-muted" : ""}
+              className={isChatPageWithoutGroup && !isSpecificGroupChatPage ? "bg-terminal-muted" : ""}
             >
               <MessageCircle size={18} />
               <span>Chat</span>
@@ -94,7 +102,7 @@ const SidebarNavMenu = () => {
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={() => navigate("/groups")}
-              className={location.pathname === "/groups" ? "bg-terminal-muted" : ""}
+              className={isGroupsPage ? "bg-terminal-muted" : ""}
             >
               <Users size={18} />
               <span>Groups</span>
@@ -108,7 +116,7 @@ const SidebarNavMenu = () => {
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={() => navigate("/profile")}
-              className={location.pathname === "/profile" ? "bg-terminal-muted" : ""}
+              className={isProfilePage ? "bg-terminal-muted" : ""}
             >
               <User size={18} />
               <span>Profile</span>
