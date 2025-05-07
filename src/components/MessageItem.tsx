@@ -16,9 +16,22 @@ interface MessageItemProps {
   currentGroup?: { id: string; name: string } | null;
 }
 
-const MessageItem = ({ message, isSending, isCurrentUser, showAvatar = true, currentGroup }: MessageItemProps) => {
+const MessageItem = ({
+  message,
+  isSending,
+  isCurrentUser,
+  showAvatar = true,
+  currentGroup,
+}: MessageItemProps) => {
   const { user } = useAuth();
   const { navigateToGroup } = useGroupNavigation();
+
+  // Force a re-render every minute for live "time ago"
+  const [, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Timestamp
   const formattedTime = message.timestamp
@@ -28,7 +41,7 @@ const MessageItem = ({ message, isSending, isCurrentUser, showAvatar = true, cur
   const senderName = message.username || "Anonymous";
   const initials = senderName
     .split(" ")
-    .map(n => n[0])
+    .map((n) => n[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
@@ -86,8 +99,12 @@ const MessageItem = ({ message, isSending, isCurrentUser, showAvatar = true, cur
 
   // Format seconds to mm:ss
   const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60).toString().padStart(2, "0");
-    const s = Math.floor(sec % 60).toString().padStart(2, "0");
+    const m = Math.floor(sec / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = Math.floor(sec % 60)
+      .toString()
+      .padStart(2, "0");
     return `${m}:${s}`;
   };
 
@@ -123,11 +140,16 @@ const MessageItem = ({ message, isSending, isCurrentUser, showAvatar = true, cur
       >
         <div className="flex items-center gap-2 mb-1 text-xs text-terminal-foreground/60">
           {!isCurrentUser && <span className="font-semibold">{senderName}</span>}
-          {message.group_id && currentGroup && message.group_id !== currentGroup.id && (
-            <button onClick={handleGroupNameClick} className="underline hover:text-terminal-foreground transition-colors">
-              #{currentGroup.name}
-            </button>
-          )}
+          {message.group_id &&
+            currentGroup &&
+            message.group_id !== currentGroup.id && (
+              <button
+                onClick={handleGroupNameClick}
+                className="underline hover:text-terminal-foreground transition-colors"
+              >
+                #{currentGroup.name}
+              </button>
+            )}
           <span>{formattedTime}</span>
         </div>
 
@@ -143,7 +165,7 @@ const MessageItem = ({ message, isSending, isCurrentUser, showAvatar = true, cur
               max={duration}
               value={progress}
               onChange={onSeek}
-              className="flex-1 h-1 rounded-lg bg-terminal-border accent-terminal-accent focus:outline-none"
+              className="flex-1 h-1 rounded-lg bg-terminal-border accent-[#3bf654] focus:outline-none"
             />
             <span className="text-xs">{formatTime(progress)} / {formatTime(duration)}</span>
           </div>

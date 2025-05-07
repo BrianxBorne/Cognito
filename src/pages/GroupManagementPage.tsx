@@ -625,7 +625,7 @@ const GroupManagementPage = () => {
                   </span>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between">
+              <CardFooter className="flex flex-wrap justify-between gap-2">
                 <Button
                   variant="outline" 
                   onClick={() => {
@@ -727,7 +727,7 @@ const GroupManagementPage = () => {
                       {leaveGroupLoading[group.id] ? (
                         <Loader2 size={16} className="animate-spin" />
                       ) : (
-                        "Leave Group"
+                        "Leave"
                       )}
                     </Button>
                   )}

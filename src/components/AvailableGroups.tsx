@@ -122,31 +122,33 @@ const AvailableGroups = ({ onJoinRequest }: AvailableGroupsProps) => {
               {/* Fixed button layout for better mobile experience */}
               <div className="mt-4 flex flex-wrap gap-2">
                 {group.isMember ? (
-                  <div className="w-full flex flex-wrap gap-2">
-                    {group.created_by !== user?.id && (
-                      <Button
-                        className="flex items-center mr-auto"
-                        size="sm"
-                        variant="outline" 
-                        disabled={leaveGroupLoading[group.id]}
-                        onClick={() => handleLeaveGroup(group.id, group.name)}
-                      >
-                        {leaveGroupLoading[group.id] ? (
-                          <Loader2 size={16} className="animate-spin mr-1" />
-                        ) : (
-                          <span className="text-red-500">Leave</span>
-                        )}
-                      </Button>
-                    )}
+                  <div className="w-full flex justify-between items-center">
+                  {group.created_by !== user?.id ? (
                     <Button
                       className="flex items-center"
                       size="sm"
-                      onClick={() => handleOpenTerminal(group.id)}
+                      variant="outline" 
+                      disabled={leaveGroupLoading[group.id]}
+                      onClick={() => handleLeaveGroup(group.id, group.name)}
                     >
-                      <Terminal size={16} className="mr-1" />
-                      Open Terminal
+                      {leaveGroupLoading[group.id] ? (
+                        <Loader2 size={16} className="animate-spin mr-1" />
+                      ) : (
+                        <span className="text-red-500">Leave</span>
+                      )}
                     </Button>
-                  </div>
+                  ) : <div />}
+                
+                  <Button
+                    className="flex items-center"
+                    size="sm"
+                    onClick={() => handleOpenTerminal(group.id)}
+                  >
+                    <Terminal size={16} className="mr-1" />
+                    Open Terminal
+                  </Button>
+                </div>
+                
                 ) : (
                   <Button
                     className="flex items-center"

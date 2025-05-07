@@ -1,4 +1,3 @@
-
 import React, { useRef, useLayoutEffect, useEffect, useState } from "react";
 import MessageItem from "@/components/MessageItem";
 import AvailableGroups from "@/components/AvailableGroups";
@@ -28,6 +27,9 @@ const MessageList = ({
   // Local display state to prevent "leaked" messages on group switch
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
 
+  // Dummy state to trigger re-renders for live "time ago" updates
+  const [now, setNow] = useState(Date.now());
+
   // 1️⃣ Clear when switching groups
   useEffect(() => {
     setDisplayMessages([]);
@@ -47,6 +49,14 @@ const MessageList = ({
       bottomRef.current.scrollIntoView({ block: "end" });
     }
   }, [displayMessages]);
+
+  // 4️⃣ Tick every minute to update relative timestamps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLeaveGroup = async (groupId: string, groupName: string) => {
     if (!user) return;
