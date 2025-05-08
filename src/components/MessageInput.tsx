@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Send, Image, Gift, Mic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,9 @@ const MessageInput = ({
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
-  
+  // ← stash the real input event so we don’t have to fake it later
+  const [fileEvent, setFileEvent] = useState<React.ChangeEvent<HTMLInputElement> | null>(null);
+
   // References to file inputs
   const imageInputRef = useRef<HTMLInputElement>(null);
   const gifInputRef = useRef<HTMLInputElement>(null);
@@ -27,42 +28,19 @@ const MessageInput = ({
 
   const handleSend = () => {
     if ((!text.trim() && !selectedFile) || uploadingMedia) return;
-    
-    if (selectedFile && selectedFileType) {
-      // Get the appropriate input reference
-      const inputRef = 
-        selectedFileType === 'image-upload' ? imageInputRef :
-        selectedFileType === 'gif-upload' ? gifInputRef :
-        selectedFileType === 'audio-upload' ? audioInputRef : null;
-      
-      if (inputRef?.current) {
-        // Use the actual change event from the input directly
-        onFileUpload({ 
-          target: inputRef.current,
-          currentTarget: inputRef.current,
-          type: 'change',
-          bubbles: true,
-          cancelable: true,
-          defaultPrevented: false,
-          eventPhase: 0,
-          isTrusted: true,
-          preventDefault: () => {},
-          isDefaultPrevented: () => false,
-          stopPropagation: () => {},
-          isPropagationStopped: () => false,
-          persist: () => {},
-          timeStamp: Date.now(),
-          nativeEvent: {} as any
-        } as React.ChangeEvent<HTMLInputElement>, text);
-      }
-      
-      // Reset states
+
+    if (selectedFile && fileEvent) {
+      // Use the real file-change event, which includes the files payload
+      onFileUpload(fileEvent, text);
+
+      // Reset everything
       setSelectedFile(null);
       setSelectedFileType(null);
+      setFileEvent(null);
     } else {
       onSendMessage(text.trim());
     }
-    
+
     setText("");
   };
 
@@ -71,16 +49,18 @@ const MessageInput = ({
     if (file) {
       setSelectedFile(file);
       setSelectedFileType(event.target.id);
+      setFileEvent(event);
     }
   };
 
   const cancelFileSelection = () => {
     setSelectedFile(null);
     setSelectedFileType(null);
+    setFileEvent(null);
     // Reset input values
-    if (imageInputRef.current) imageInputRef.current.value = '';
-    if (gifInputRef.current) gifInputRef.current.value = '';
-    if (audioInputRef.current) audioInputRef.current.value = '';
+    if (imageInputRef.current) imageInputRef.current.value = "";
+    if (gifInputRef.current) gifInputRef.current.value = "";
+    if (audioInputRef.current) audioInputRef.current.value = "";
   };
 
   if (!currentGroup) return null;
@@ -91,20 +71,20 @@ const MessageInput = ({
       {selectedFile && (
         <div className="mb-2 p-2 bg-terminal-muted rounded-lg flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            {selectedFileType?.includes('image') && (
+            {selectedFileType?.includes("image") && (
               <Image size={16} className="text-terminal-foreground/70" />
             )}
-            {selectedFileType?.includes('gif') && (
+            {selectedFileType?.includes("gif") && (
               <Gift size={16} className="text-terminal-foreground/70" />
             )}
-            {selectedFileType?.includes('audio') && (
+            {selectedFileType?.includes("audio") && (
               <Mic size={16} className="text-terminal-foreground/70" />
             )}
             <span className="text-sm text-terminal-foreground/70 truncate max-w-[200px]">
               {selectedFile.name}
             </span>
           </div>
-          <button 
+          <button
             onClick={cancelFileSelection}
             className="text-terminal-foreground/70 hover:text-terminal-foreground p-1"
           >
@@ -158,13 +138,12 @@ const MessageInput = ({
             className="flex-1 resize-none bg-transparent outline-none text-sm text-terminal-foreground placeholder-terminal-foreground/50 h-6 max-h-20"
             rows={1}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
           />
-          {/* Emoji icon could go here */}
         </div>
 
         {/* Send / mic button */}
