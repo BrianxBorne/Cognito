@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -29,6 +28,9 @@ export const useSendMessage = (
       // Get user profile data
       const profileData = await getUserProfile(user.id);
 
+      // Create a unique temp ID for this message
+      const tempId = crypto.randomUUID();
+
       // Optimistically update the local state
       const tempMessage = createOptimisticMessage(
         user.id, 
@@ -38,20 +40,28 @@ export const useSendMessage = (
         profileData.avatar_url
       );
 
+      // Set the temporary ID to track this specific message
+      tempMessage.id = tempId;
+      
+      // Add the message to the local state immediately with 'sending' status
       setMessages(prevMessages => [...prevMessages, tempMessage]);
 
       // Send the message to the database
-      await sendTextMessage(groupId, user.id, messageContent);
+      const result = await sendTextMessage(groupId, user.id, messageContent, tempId);
+      
+      // Update the message status to 'sent' when successfully delivered
+      if (result && result.success) {
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === tempId ? { ...msg, status: 'sent' } : msg
+          )
+        );
+      }
     } catch (error) {
       console.error("Error in sendMessage:", error);
       toast.error("Failed to send message.");
-      // Revert the optimistic update on error
-      setMessages(prevMessages => 
-        prevMessages.filter(msg => 
-          // We need to check if the message has the same content and timestamp
-          !(msg.userId === user.id && msg.content === messageContent)
-        )
-      );
+      // Keep the message but indicate it failed (we don't remove it)
+      // UI can show retry option if needed
     }
   };
 

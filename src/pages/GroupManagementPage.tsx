@@ -459,11 +459,13 @@ const GroupManagementPage = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       {/* Rearranged header section - vertical layout */}
+    <div className="sticky-header">
       <div className="flex flex-col mb-8">
         <div className="flex items-center mb-4">
           <SidebarTrigger />
           <h1 className="text-2xl font-bold text-terminal-foreground ml-4">Group Management</h1>
         </div>
+      </div>
         
         <div className="flex flex-col sm:flex-row gap-2">
           <Dialog>

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -19,6 +19,63 @@ export const useChatMessages = (groupId: string | undefined, user: User | null) 
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
+  const pollingIntervalRef = useRef<number | null>(null);
+  const lastMessageTimestampRef = useRef<string | null>(null);
+
+  // Function to fetch latest messages
+  const fetchLatestMessages = async () => {
+    if (!groupId || !user) return;
+
+    try {
+      // Fetch only new messages since the last message timestamp
+      const { data: newMessagesData, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('group_id', groupId)
+        .gt('created_at', lastMessageTimestampRef.current || '1970-01-01T00:00:00Z')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Error fetching latest messages:", error);
+        return;
+      }
+
+      // If no new messages, return
+      if (!newMessagesData || newMessagesData.length === 0) return;
+
+      // Update the last message timestamp
+      if (newMessagesData.length > 0) {
+        const latestTimestamp = newMessagesData[newMessagesData.length - 1].created_at;
+        lastMessageTimestampRef.current = latestTimestamp;
+      }
+
+      // Get unique user IDs from messages
+      const userIds = [...new Set(newMessagesData?.map(msg => msg.user_id) || [])];
+      
+      // Fetch profiles for those user IDs
+      const profilesData = await fetchUserProfiles(userIds);
+
+      // Create a map of user IDs to their profile data for easy lookup
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      // Transform the new messages data with the profiles information
+      const formattedNewMessages = formatMessages(newMessagesData, profilesMap);
+
+      // Append new messages
+      setMessages(prevMessages => {
+        // Filter out any messages that might be duplicates
+        const existingMessageIds = new Set(prevMessages.map(msg => msg.id));
+        const uniqueNewMessages = formattedNewMessages.filter(msg => !existingMessageIds.has(msg.id));
+        
+        return [...prevMessages, ...uniqueNewMessages];
+      });
+    } catch (error) {
+      console.error("Error in polling for new messages:", error);
+    }
+  };
 
   // Fetch messages and group info
   useEffect(() => {
@@ -56,6 +113,11 @@ export const useChatMessages = (groupId: string | undefined, user: User | null) 
         // Transform the messages data with the profiles information
         const formattedMessages = formatMessages(messagesData, profilesMap);
 
+        // Set the last message timestamp if there are messages
+        if (messagesData && messagesData.length > 0) {
+          lastMessageTimestampRef.current = messagesData[messagesData.length - 1].created_at;
+        }
+
         setMessages(formattedMessages);
       } catch (error) {
         console.error("Error fetching chat data:", error);
@@ -66,6 +128,9 @@ export const useChatMessages = (groupId: string | undefined, user: User | null) 
     };
 
     fetchChatData();
+
+    // Set up polling interval to check for new messages every 2 seconds
+    pollingIntervalRef.current = window.setInterval(fetchLatestMessages, 2000);
 
     // Subscribe to new messages
     const messagesSubscription = supabase
@@ -90,7 +155,17 @@ export const useChatMessages = (groupId: string | undefined, user: User | null) 
               group_id: newMsg.group_id
             };
 
-            setMessages(prevMessages => [...prevMessages, formattedMessage]);
+            // Update last message timestamp
+            lastMessageTimestampRef.current = newMsg.created_at;
+
+            setMessages(prevMessages => {
+              // Check if message already exists in the list
+              const messageExists = prevMessages.some(msg => msg.id === formattedMessage.id);
+              if (messageExists) {
+                return prevMessages;
+              }
+              return [...prevMessages, formattedMessage];
+            });
           } catch (error) {
             console.error("Error processing new message:", error);
           }
@@ -99,6 +174,10 @@ export const useChatMessages = (groupId: string | undefined, user: User | null) 
       .subscribe();
 
     return () => {
+      // Clear polling interval when component unmounts or groupId changes
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
       supabase.removeChannel(messagesSubscription);
     };
   }, [groupId, user]);

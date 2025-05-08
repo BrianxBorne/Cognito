@@ -1,3 +1,4 @@
+
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import React, { useState, useRef, useEffect } from "react";
@@ -6,11 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useGroupNavigation } from "@/hooks/useGroupNavigation";
 import { Message } from "@/services/messageService";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Clock, CheckCheck } from "lucide-react";
 
 interface MessageItemProps {
   message: Message;
-  isSending?: boolean;
   isCurrentUser: boolean;
   showAvatar?: boolean;
   currentGroup?: { id: string; name: string } | null;
@@ -18,7 +18,6 @@ interface MessageItemProps {
 
 const MessageItem = ({
   message,
-  isSending,
   isCurrentUser,
   showAvatar = true,
   currentGroup,
@@ -113,7 +112,7 @@ const MessageItem = ({
       className={cn(
         "flex gap-2 p-2 relative",
         isCurrentUser ? "justify-end" : "justify-start",
-        isSending && "opacity-70"
+        message.status === 'sending' && "opacity-90"
       )}
     >
       {!isCurrentUser && showAvatar && (
@@ -151,6 +150,17 @@ const MessageItem = ({
               </button>
             )}
           <span>{formattedTime}</span>
+          
+          {/* Message status indicator for current user's messages */}
+          {isCurrentUser && message.status && (
+            <span className="ml-1">
+              {message.status === 'sending' ? (
+                <Clock size={12} className="text-terminal-foreground/60" />
+              ) : message.status === 'sent' ? (
+                <CheckCheck size={12} className="text-green-500" />
+              ) : null}
+            </span>
+          )}
         </div>
 
         {message.media_url && message.media_type === 'audio' && (

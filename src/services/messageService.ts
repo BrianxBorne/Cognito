@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -13,6 +12,7 @@ export interface Message {
   media_type?: string;
   avatar_url?: string;
   group_id?: string;
+  status?: 'sending' | 'sent'; // New status field
 }
 
 export const fetchMessages = async (groupId: string) => {
@@ -69,14 +69,15 @@ export const formatMessages = (messagesData: any[], profilesMap: Map<string, any
       media_url: msg.media_url,
       media_type: msg.media_type,
       avatar_url: profile?.avatar_url,
-      group_id: msg.group_id
+      group_id: msg.group_id,
+      status: 'sent' // New status field - all messages are initially 'sent'
     };
   }) || [];
 };
 
-export const sendTextMessage = async (groupId: string, userId: string, content: string) => {
+export const sendTextMessage = async (groupId: string, userId: string, content: string, tempId?: string) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .insert([
         {
@@ -85,7 +86,8 @@ export const sendTextMessage = async (groupId: string, userId: string, content: 
           content,
           created_at: new Date().toISOString(),
         },
-      ]);
+      ])
+      .select();
 
     if (error) {
       console.error("Error sending message:", error);
@@ -93,27 +95,35 @@ export const sendTextMessage = async (groupId: string, userId: string, content: 
       throw error;
     }
     
-    return true;
+    return { success: true, tempId, serverMessage: data?.[0] };
   } catch (error) {
     console.error("Error in sendTextMessage:", error);
     throw error;
   }
 };
 
-export const sendMediaMessage = async (groupId: string, userId: string, mediaUrl: string, mediaType: string) => {
+export const sendMediaMessage = async (
+  groupId: string, 
+  userId: string, 
+  mediaUrl: string, 
+  mediaType: string,
+  content?: string,
+  tempId?: string
+) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .insert([
         {
           group_id: groupId,
           user_id: userId,
-          content: "", // No text content when sending media
+          content: content || "", // Optional text content when sending media
           created_at: new Date().toISOString(),
           media_url: mediaUrl,
           media_type: mediaType,
         },
-      ]);
+      ])
+      .select();
 
     if (error) {
       console.error("Error sending media message:", error);
@@ -121,7 +131,7 @@ export const sendMediaMessage = async (groupId: string, userId: string, mediaUrl
       throw error;
     }
     
-    return true;
+    return { success: true, tempId, serverMessage: data?.[0] };
   } catch (error) {
     console.error("Error in sendMediaMessage:", error);
     throw error;
@@ -166,6 +176,7 @@ export const createOptimisticMessage = (
     avatar_url: avatarUrl,
     group_id: groupId,
     media_url: mediaUrl,
-    media_type: mediaType
+    media_type: mediaType,
+    status: 'sending' // New status field - all optimistic messages start as 'sending'
   };
 };
